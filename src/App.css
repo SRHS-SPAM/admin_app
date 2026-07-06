@@ -1587,6 +1587,10 @@ body {
   top: 31%;
   left: 13%;
   width: 74%;
+  bottom: 5%;              /* 기록 박스 안까지만 */
+  overflow-y: auto;        /* 기록이 많으면 박스 안에서 스크롤 */
+  overflow-x: hidden;
+  align-content: start;
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr 1.4fr 1fr;
   row-gap: 1.5vh;
@@ -1594,6 +1598,17 @@ body {
   font-size: 0.85vw;
   color: #cfcfcf;
   z-index: 2;
+  scrollbar-width: thin;   /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+
+.history-table::-webkit-scrollbar {
+  width: 5px;
+}
+
+.history-table::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
 }
 
 .history-table div:nth-child(-n + 5) {
