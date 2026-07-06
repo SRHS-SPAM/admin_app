@@ -22,9 +22,11 @@ async function request(path, { method = 'GET' } = {}) {
 // 프린터 목록 (status/current_user/reservation 포함)
 export const fetchPrinters = () => request('/api/printers/');
 
-// 관리자 상태 설정 (pill 버튼): 모든 예약 취소 + 알림 발송 포함
+// 관리자 상태 설정 (팝업 3옵션)
 export const setAvailable = (id) => request(`/api/printers/${id}/set-available/`, { method: 'POST' });
 export const setUnavailable = (id) => request(`/api/printers/${id}/set-unavailable/`, { method: 'POST' });
+// 예약만 취소 (사용중 상태 유지)
+export const cancelReservation = (id) => request(`/api/printers/${id}/cancel-reservation/`, { method: 'POST' });
 
 // 전체 사용 기록 (최근 7일)
 export const fetchPrintLogs = () => request('/api/printer-logs/');

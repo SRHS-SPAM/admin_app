@@ -2268,16 +2268,80 @@ body {
   padding: 0;
   cursor: pointer;
 }
-/* 상태 박스 안 사용자/예약자 학번·이름 (상태 글씨 아래) */
+/* 상태 박스 안 사용자/예약자 학번·이름 (상태 글씨 아래, 박스 밖 이탈 금지) */
 .printer-box-info {
   position: absolute;
-  top: 58%;
-  left: 0;
-  width: 100%;
+  top: 55%;
+  left: 5%;
+  right: 5%;
+  bottom: 7%;
+  overflow: hidden;          /* 어떤 확대/축소에서도 박스 안에만 표시 */
   text-align: center;
-  font-size: 0.9vw;
+  font-size: 0.85vw;         /* 박스도 vw 비례라 창 크기와 무관하게 비율 유지 */
   font-weight: bold;
   color: rgba(0, 0, 0, 0.5);
   pointer-events: none;
   line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* ===== 프린터 상태 설정 팝업 ===== */
+.status-popup-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.status-popup {
+  width: 20vw;
+  min-width: 240px;
+  background: #f3efe9;
+  border-radius: 1vw;
+  padding: 1.6vw 1.4vw 1.2vw;
+  box-shadow: 0 0.6vw 1.6vw rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7vw;
+}
+
+.status-popup-title {
+  text-align: center;
+  font-family: "SBAggro", sans-serif;
+  font-size: 1.25vw;
+  margin-bottom: 0.6vw;
+}
+
+.status-popup-option {
+  border: none;
+  border-radius: 2vw;
+  padding: 0.8vw 0;
+  font-size: 1vw;
+  font-family: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: #171717;
+  cursor: pointer;
+}
+
+.status-popup-option.danger {
+  background: #f34b4b;
+}
+
+.status-popup-option:hover {
+  opacity: 0.85;
+}
+
+.status-popup-close {
+  border: none;
+  background: none;
+  margin-top: 0.4vw;
+  font-size: 0.9vw;
+  font-family: inherit;
+  color: #666;
+  cursor: pointer;
+  text-decoration: underline;
 }

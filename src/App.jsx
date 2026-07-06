@@ -51,7 +51,6 @@ import historyOval from "./assets/admin-history-oval.png";
 import printerSettingBanner from "./assets/admin-printer-setting-banner.png";
 import settingIcon from "./assets/admin-setting-icon.png";
 import printerAvailableButton from "./assets/admin-printer-available-button.png";
-import printerUnavailableButton from "./assets/admin-printer-unavailable-button.png";
 
 import settingSidePanel from "./assets/admin-setting-side-panel.png";
 import settingTitleIcon from "./assets/admin-setting-title-icon.png";
@@ -159,16 +158,21 @@ function App() {
     return lines;
   };
 
-  // pill 토글: 사용 불가 <-> 사용 가능 (백엔드가 예약 취소 + 알림까지 처리)
-  const handleTogglePrinter = async (printer) => {
+  // 상태 설정 팝업: 사용 가능 / 사용 불가 / 예약 취소 (백엔드가 예약 취소 + 알림까지 처리)
+  const [statusPopupPrinter, setStatusPopupPrinter] = useState(null);
+
+  const handleStatusAction = async (action) => {
+    const printer = statusPopupPrinter;
+    if (!printer) return;
     try {
-      const updated =
-        printer.status === "UNAVAILABLE"
-          ? await api.setAvailable(printer.id)
-          : await api.setUnavailable(printer.id);
+      let updated;
+      if (action === "available") updated = await api.setAvailable(printer.id);
+      else if (action === "unavailable") updated = await api.setUnavailable(printer.id);
+      else updated = await api.cancelReservation(printer.id);
       setPrinters((prev) =>
         prev.map((p) => (p.id === updated.id ? updated : p))
       );
+      setStatusPopupPrinter(null);
     } catch (error) {
       alert(`프린터 상태 변경 실패: ${error.message}`);
     }
@@ -364,7 +368,6 @@ function App() {
               <div className="printer-setting-grid">
                 {printers.map((printer) => {
                   const status = api.statusForAdmin(printer);
-                  const isUnavailable = printer.status === "UNAVAILABLE";
                   return (
                     <PrinterCard
                       key={printer.id}
@@ -373,13 +376,9 @@ function App() {
                       name={printer.name}
                       status={getPrinterText(status)}
                       infoLines={getPrinterInfoLines(printer, status)}
-                      buttonImg={
-                        isUnavailable
-                          ? printerUnavailableButton
-                          : printerAvailableButton
-                      }
-                      buttonText={isUnavailable ? "사용 불가능" : "사용 가능"}
-                      onButtonClick={() => handleTogglePrinter(printer)}
+                      buttonImg={printerAvailableButton}
+                      buttonText="상태 설정"
+                      onButtonClick={() => setStatusPopupPrinter(printer)}
                     />
                   );
                 })}
@@ -446,6 +445,45 @@ function App() {
         </main>
       )}
 
+      {/* 프린터 상태 설정 팝업: 사용 가능 / 사용 불가 / 예약 취소 */}
+      {statusPopupPrinter && (
+        <div
+          className="status-popup-bg"
+          onClick={() => setStatusPopupPrinter(null)}
+        >
+          <div className="status-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="status-popup-title">
+              {statusPopupPrinter.name} 상태 설정
+            </div>
+
+            <button
+              className="status-popup-option"
+              onClick={() => handleStatusAction("available")}
+            >
+              사용 가능
+            </button>
+            <button
+              className="status-popup-option danger"
+              onClick={() => handleStatusAction("unavailable")}
+            >
+              사용 불가
+            </button>
+            <button
+              className="status-popup-option"
+              onClick={() => handleStatusAction("cancel")}
+            >
+              예약 취소
+            </button>
+
+            <button
+              className="status-popup-close"
+              onClick={() => setStatusPopupPrinter(null)}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
