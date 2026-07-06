@@ -1796,16 +1796,10 @@ body {
   color: rgba(0, 0, 0, 0.45);
 }
 
-.printer-state-button {
-  width: 82%;
-  margin-top: 1.2vh;
-  display: block;
-}
-
 .printer-state-button-wrap {
   position: relative;
   width: 82%;
-  margin-top: -0.5vh;
+  margin-top: 0.7vh;
 }
 
 .printer-state-button {
@@ -1813,16 +1807,18 @@ body {
   display: block;
 }
 
+/* 버튼 글자: 항상 pill 이미지 안 가운데, 줄바꿈/이탈 금지 */
 .printer-state-text {
   position: absolute;
   inset: 0;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
-  padding-left: 2.7vw;   
   color: white;
   font-size: 0.9vw;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* ===== 설정 페이지 ===== */
