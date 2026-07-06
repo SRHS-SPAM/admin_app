@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as api from "./api";
 import "./App.css";
 
 import adminBg from "./assets/admin-bg.png";
@@ -50,6 +51,7 @@ import historyOval from "./assets/admin-history-oval.png";
 import printerSettingBanner from "./assets/admin-printer-setting-banner.png";
 import settingIcon from "./assets/admin-setting-icon.png";
 import printerAvailableButton from "./assets/admin-printer-available-button.png";
+import printerUnavailableButton from "./assets/admin-printer-unavailable-button.png";
 
 import settingSidePanel from "./assets/admin-setting-side-panel.png";
 import settingTitleIcon from "./assets/admin-setting-title-icon.png";
@@ -73,84 +75,35 @@ import withdrawConfirm from "./assets/admin-withdraw-confirm.png";
 import withdrawCancel from "./assets/admin-withdraw-cancel.png";
 
 function App() {
-  const [page, setPage] = useState("login");
-  const [isLogin, setIsLogin] = useState(false);
-  const [autoLogin, setAutoLogin] = useState(false);
-  const [settingTab, setSettingTab] = useState("account");
+  // 관리자 웹은 무인증: 첫 화면 = 홈 (링크 자체를 교사에게만 공유)
+  const [page, setPage] = useState("home");
+  const [settingTab, setSettingTab] = useState("alarm");
 
   const [alarmOn, setAlarmOn] = useState(
     localStorage.getItem("alarmOn") === "true"
   );
 
-  const [joinDate, setJoinDate] = useState(
-    localStorage.getItem("joinDate") || "가입일 없음"
-  );
-
-  const [newEmail, setNewEmail] = useState("");
-
-  const [loginEmail, setLoginEmail] = useState(
-    localStorage.getItem("loginEmail") || ""
-  );
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [monthOpen, setMonthOpen] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState("");
-
-  const [dayOpen, setDayOpen] = useState(false);
-  const [selectedDay, setSelectedDay] = useState("");
-
-  const [timeLeft, setTimeLeft] = useState(600);
-  const [isVerified, setIsVerified] = useState(false);
-  const [verifyCode, setVerifyCode] = useState("");
-
-  const [newPassword, setNewPassword] = useState("");
-  const [newPasswordCheck, setNewPasswordCheck] = useState("");
-
   const now = new Date();
   const [selectedDate, setSelectedDate] = useState(now.getDate());
   const [printLogs, setPrintLogs] = useState([]);
 
-  const [printers, setPrinters] = useState([
-    { id: 1, name: "프린터A", status: "available" },
-    { id: 2, name: "프린터B", status: "available" },
-    { id: 3, name: "프린터C", status: "available" },
-    { id: 4, name: "프린터D", status: "available" },
-  ]);
-
-  const [correctCode] = useState("654321");
-
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-
-  useEffect(() => {
-    const protectedPages = ["home", "history", "printerSetting", "setting"];
-
-    if (!isLogin && protectedPages.includes(page)) {
-      alert("로그인 후 이용해주세요.");
-      setPage("login");
-    }
-  }, [page, isLogin]);
+  // 백엔드 프린터 목록 (status/current_user/reservation 포함)
+  const [printers, setPrinters] = useState([]);
 
   useEffect(() => {
     if (page !== "home" && page !== "printerSetting") return;
 
-    const fetchPrinters = async () => {
+    const load = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/printers/");
-        const data = await res.json();
-        setPrinters(data);
+        setPrinters(await api.fetchPrinters());
       } catch (error) {
         console.error("프린터 상태 불러오기 실패:", error);
       }
     };
 
-    fetchPrinters();
+    load();
 
-    const interval = setInterval(fetchPrinters, 3000);
+    const interval = setInterval(load, 3000);
 
     return () => clearInterval(interval);
   }, [page]);
@@ -158,41 +111,19 @@ function App() {
   useEffect(() => {
     if (page !== "history") return;
 
-    const fetchPrintLogs = async () => {
+    const load = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/printer-logs/");
-        const data = await res.json();
-        setPrintLogs(data);
+        setPrintLogs(await api.fetchPrintLogs());
       } catch (error) {
         console.error("프린터 기록 불러오기 실패:", error);
       }
     };
 
-    fetchPrintLogs();
+    load();
 
-    const interval = setInterval(fetchPrintLogs, 5000);
+    const interval = setInterval(load, 5000);
 
     return () => clearInterval(interval);
-  }, [page]);
-
-  useEffect(() => {
-    if (page !== "findPasswordVerify") return;
-
-    setTimeLeft(600);
-    setIsVerified(false);
-    setVerifyCode("");
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
   }, [page]);
 
   const getPrinterImage = (status) => {
@@ -211,38 +142,35 @@ function App() {
     return "비어있음";
   };
 
-  const getPrinterButtonText = () => {
-  return "상태설정";
+  // 사각형 안 표시 정보: 사용자 / 예약자 (관리자는 한 화면에 둘 다)
+  const getPrinterInfoLines = (printer, status) => {
+    const lines = [];
+    if (status === "using" && printer.current_user) {
+      lines.push(`${printer.current_user.student_number} ${printer.current_user.name}`);
+    }
+    if (status === "reserved") {
+      if (printer.current_user) {
+        lines.push(`사용자 : ${printer.current_user.student_number} ${printer.current_user.name}`);
+      }
+      if (printer.reservation) {
+        lines.push(`예약자 : ${printer.reservation.user.student_number} ${printer.reservation.user.name}`);
+      }
+    }
+    return lines;
   };
 
-  const handleDisablePrinter = async (printerId) => {
-    const targetPrinter = printers.find((printer) => printer.id === printerId);
-
-    if (!targetPrinter) return;
-
-    const nextStatus =
-      targetPrinter.status === "available" ? "unavailable" : "available";
-
-    setPrinters((prev) =>
-      prev.map((printer) =>
-        printer.id === printerId
-          ? { ...printer, status: nextStatus }
-          : printer
-      )
-    );
-
+  // pill 토글: 사용 불가 <-> 사용 가능 (백엔드가 예약 취소 + 알림까지 처리)
+  const handleTogglePrinter = async (printer) => {
     try {
-      await fetch(`http://localhost:8000/api/printers/${printerId}/`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: nextStatus,
-        }),
-      });
+      const updated =
+        printer.status === "UNAVAILABLE"
+          ? await api.setAvailable(printer.id)
+          : await api.setUnavailable(printer.id);
+      setPrinters((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
     } catch (error) {
-      console.error("프린터 상태 변경 실패:", error);
+      alert(`프린터 상태 변경 실패: ${error.message}`);
     }
   };
 
@@ -259,102 +187,21 @@ function App() {
     }
   };
 
-  const handleLogin = () => {
-    if (email.trim() === "" || password.trim() === "") {
-      alert("이메일과 비밀번호를 입력해주세요.");
-      return;
-    }
-
-    // 임시 로그인
-    setLoginEmail(email.trim());
-    localStorage.setItem("loginEmail", email.trim());
-
-    setIsLogin(true);
-    setPage("home");
-  };
-
-  const goProtectedPage = (targetPage) => {
-    if (!isLogin) {
-      alert("로그인 후 이용해주세요.");
-      setPage("login");
-      return;
-    }
-
-    setPage(targetPage);
-  };
-
-  const handleLogout = () => {
-    setIsLogin(false);
-    setPage("login");
-  };
-
-  const handleVerifyCode = () => {
-    if (verifyCode.trim() === "") {
-      alert("인증코드를 입력해주세요.");
-      return;
-    }
-
-    if (verifyCode.trim() !== correctCode) {
-      alert("인증코드가 올바르지 않습니다.");
-      return;
-    }
-
-    setIsVerified(true);
-  };
-
-  const handleChangePassword = () => {
-    if (newPassword.trim() === "" || newPasswordCheck.trim() === "") {
-      alert("비밀번호를 입력해주세요.");
-      return;
-    }
-
-    if (newPassword !== newPasswordCheck) {
-      alert("비밀번호가 일치하지 않습니다.");
-      return;
-    }
-
-    setNewPassword("");
-    setNewPasswordCheck("");
-    setPage("login");
-  };
-
-  const isLoginPage =
-    page === "login" ||
-    page === "signup" ||
-    page === "findPassword" ||
-    page === "findPasswordVerify" ||
-    page === "changePassword";
-
-  const isLoggedInPage =
-    page === "home" ||
-    page === "history" ||
-    page === "printerSetting" ||
-    page === "setting";
-
   return (
     <div className="admin-page">
-      {isLoginPage && <img src={adminBg} className="admin-bg" alt="" />}
-
       <header className="topbar">
         <img src={adminTopbar} className="topbar-img" alt="" />
 
         <nav className="top-nav">
-          <span onClick={() => goProtectedPage("home")}>홈</span>
-          <span onClick={() => goProtectedPage("history")}>기록</span>
-          <span onClick={() => goProtectedPage("printerSetting")}>프린터 설정</span>
+          <span onClick={() => setPage("home")}>홈</span>
+          <span onClick={() => setPage("history")}>기록</span>
+          <span onClick={() => setPage("printerSetting")}>프린터 설정</span>
         </nav>
 
         <div className="logo-area">
           <img src={adminSchoolLogo} className="school-logo" alt="" />
           <img src={adminSpamLogo} className="spam-logo" alt="" />
         </div>
-
-        <span
-          className="login-nav"
-          onClick={isLogin ? handleLogout : () => setPage("login")}
-        >
-          {isLogin ? "로그아웃" : "로그인"}
-        </span>
       </header>
 
       {page === "home" && (
@@ -373,15 +220,19 @@ function App() {
               <h2 className="home-panel-title">2층 소프트웨어 3D프린터</h2>
 
               <div className="home-printer-grid">
-                {printers.map((printer) => (
-                  <PrinterCard
-                    key={printer.id}
-                    img={getPrinterImage(printer.status)}
-                    label={printerLabel}
-                    name={printer.name}
-                    status={getPrinterText(printer.status)}
-                  />
-                ))}
+                {printers.map((printer) => {
+                  const status = api.statusForAdmin(printer);
+                  return (
+                    <PrinterCard
+                      key={printer.id}
+                      img={getPrinterImage(status)}
+                      label={printerLabel}
+                      name={printer.name}
+                      status={getPrinterText(status)}
+                      infoLines={getPrinterInfoLines(printer, status)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -457,13 +308,18 @@ function App() {
                 <div>종료 시간</div>
                 <div>상태</div>
 
-                {printLogs.length === 0 ? (
-                  <div className="history-empty">기록을 불러오는 중입니다.</div>
-                ) : (
-                  printLogs.map((log) => (
-                    <PrintLogRow key={log.id} log={log} />
-                  ))
-                )}
+                {(() => {
+                  // 선택한 날짜의 기록만 표시 (최근 7일 데이터)
+                  const dayLogs = printLogs.filter(
+                    (log) =>
+                      new Date(log.started_at).getDate() === selectedDate
+                  );
+                  return dayLogs.length === 0 ? (
+                    <div className="history-empty">해당 날짜의 기록이 없습니다.</div>
+                  ) : (
+                    dayLogs.map((log) => <PrintLogRow key={log.id} log={log} />)
+                  );
+                })()}
               </div>
             </div>
           </section>
@@ -506,18 +362,27 @@ function App() {
               </h2>
 
               <div className="printer-setting-grid">
-                {printers.map((printer) => (
-                  <PrinterCard
-                    key={printer.id}
-                    img={getPrinterImage(printer.status)}
-                    label={printerLabel}
-                    name={printer.name}
-                    status={getPrinterText(printer.status)}
-                    buttonImg={printerAvailableButton}
-                    buttonText={getPrinterButtonText(printer.status)}
-                    onButtonClick={() => handleDisablePrinter(printer.id)}
-                  />
-                ))}
+                {printers.map((printer) => {
+                  const status = api.statusForAdmin(printer);
+                  const isUnavailable = printer.status === "UNAVAILABLE";
+                  return (
+                    <PrinterCard
+                      key={printer.id}
+                      img={getPrinterImage(status)}
+                      label={printerLabel}
+                      name={printer.name}
+                      status={getPrinterText(status)}
+                      infoLines={getPrinterInfoLines(printer, status)}
+                      buttonImg={
+                        isUnavailable
+                          ? printerUnavailableButton
+                          : printerAvailableButton
+                      }
+                      buttonText={isUnavailable ? "사용 불가능" : "사용 가능"}
+                      onButtonClick={() => handleTogglePrinter(printer)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -539,13 +404,6 @@ function App() {
             <div className="setting-side-menu-list">
               <button
                 className="setting-side-menu"
-                onClick={() => setSettingTab("account")}
-              >
-                계정
-              </button>
-
-              <button
-                className="setting-side-menu"
                 onClick={() => setSettingTab("alarm")}
               >
                 알림
@@ -554,71 +412,6 @@ function App() {
           </aside>
 
           <section className="setting-main">
-            {settingTab === "account" && (
-              <>
-                <h1 className="setting-main-title">계정</h1>
-                <img
-                  src={settingAccountLine}
-                  className="setting-account-line"
-                  alt=""
-                />
-
-                <h2 className="setting-section-title">로그인 정보</h2>
-
-                <SettingMenuBox
-                  text="이메일 변경/확인"
-                  icon={settingArrowIcon}
-                  type="login"
-                  onClick={() => setSettingTab("email")}
-                />
-
-                <SettingMenuBox
-                  text="비밀번호 변경"
-                  icon={settingArrowIcon}
-                  type="login"
-                  onClick={() => setSettingTab("password")}
-                />
-
-                <h2 className="setting-section-title">계정 정보</h2>
-
-                <div className="setting-info-box">
-                  <img src={settingMenuBox} alt="" />
-                  <span className="setting-info-label">가입일</span>
-                  <img
-                    src={settingDateLine}
-                    className="setting-date-line"
-                    alt=""
-                  />
-                  <span className="setting-info-blue">{joinDate}</span>
-                </div>
-
-                <div className="setting-info-box">
-                  <img src={settingMenuBox} alt="" />
-                  <span className="setting-info-label">가입 방법</span>
-                  <img
-                    src={settingDateLine}
-                    className="setting-date-line"
-                    alt=""
-                  />
-                  <span className="setting-info-value">이메일</span>
-                </div>
-
-                <h2 className="setting-section-title">로그아웃/회원 탈퇴</h2>
-
-                <SettingMenuBox
-                  text="로그아웃"
-                  icon={settingArrowIcon}
-                  onClick={handleLogout}
-                />
-
-                <SettingMenuBox
-                  text="회원 탈퇴"
-                  icon={settingArrowIcon}
-                  onClick={() => setShowWithdrawModal(true)}
-                />
-              </>
-            )}
-
             {settingTab === "alarm" && (
               <>
                 <h1 className="setting-main-title">알림</h1>
@@ -649,530 +442,32 @@ function App() {
               </>
             )}
 
-            {settingTab === "email" && (
-              <>
-                <h1 className="setting-main-title">로그인 정보</h1>
-                <img
-                  src={settingAccountLine}
-                  className="setting-account-line"
-                  alt=""
-                />
-
-                <h2 className="email-change-title">이메일 변경/확인</h2>
-
-                <div className="email-change-box">
-                  <img
-                    src={settingMenuBox}
-                    className="email-change-box-img"
-                    alt=""
-                  />
-                  <span className="email-change-label">기존 이메일</span>
-                  <img
-                    src={settingDateLine}
-                    className="email-change-line"
-                    alt=""
-                  />
-                  <input
-                    className="email-change-input"
-                    value={loginEmail}
-                    readOnly
-                  />
-                </div>
-
-                <div className="email-change-box">
-                  <img
-                    src={settingMenuBox}
-                    className="email-change-box-img"
-                    alt=""
-                  />
-                  <span className="email-change-label">새 이메일</span>
-                  <img
-                    src={settingDateLine}
-                    className="email-change-line"
-                    alt=""
-                  />
-                  <input
-                    className="email-change-input"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-
-            {settingTab === "password" && (
-              <>
-                <h1 className="setting-main-title">로그인 정보</h1>
-                <img
-                  src={settingAccountLine}
-                  className="setting-account-line"
-                  alt=""
-                />
-
-                <h2 className="email-change-title">비밀번호 변경</h2>
-
-                <PasswordChangeBox
-                  label="기존 비밀번호"
-                  value={password}
-                  readOnly
-                  showPassword={showCurrentPassword}
-                  togglePassword={() =>
-                    setShowCurrentPassword(!showCurrentPassword)
-                  }
-                />
-
-                <PasswordChangeBox
-                  label="새 비밀번호"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  showPassword={showNewPassword}
-                  togglePassword={() => setShowNewPassword(!showNewPassword)}
-                />
-
-                <PasswordChangeBox
-                  label="비밀번호 확인"
-                  value={newPasswordCheck}
-                  onChange={(e) => setNewPasswordCheck(e.target.value)}
-                  showPassword={showConfirmPassword}
-                  togglePassword={() =>
-                    setShowConfirmPassword(!showConfirmPassword)
-                  }
-                />
-              </>
-            )}
           </section>
         </main>
       )}
 
-      {page === "login" && (
-        <main className="login-wrap">
-          <div className="login-box">
-            <img src={adminLoginPanel} className="login-panel" alt="" />
-
-            <div className="login-content">
-              <h1>로그인</h1>
-
-              <label>이메일</label>
-              <div className="input-box">
-                <img src={adminEmailBox} alt="" />
-                <input
-                  type="email"
-                  placeholder="이메일 입력"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <label>비밀번호</label>
-              <div className="input-box">
-                <img src={adminPasswordBox} alt="" />
-                <input
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-
-              <button className="login-button" onClick={handleLogin}>
-                <img src={adminLoginButton} alt="" />
-                <span>로그인</span>
-              </button>
-
-              <div
-                className="auto-login"
-                onClick={() => setAutoLogin(!autoLogin)}
-              >
-                <div className="check-box">
-                  <img src={adminAutoCheck} alt="" />
-                  {autoLogin && <span className="check-mark">✓</span>}
-                </div>
-                <span>자동 로그인</span>
-              </div>
-
-              <img src={adminLoginLine} className="login-line" alt="" />
-
-              <div className="login-links">
-                <span onClick={() => setPage("signup")}>회원 가입</span>
-                <span onClick={() => setPage("findPassword")}>
-                  비밀번호 찾기
-                </span>
-              </div>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {page === "signup" && (
-        <main className="signup-wrap">
-          <div className="signup-box">
-            <img src={adminSignupPanel} className="signup-panel" alt="" />
-
-            <div className="signup-content">
-              <h1>회원가입</h1>
-
-              <label>이메일</label>
-              <SignupInput img={adminEmailBox} placeholder="이메일 입력" />
-
-              <label>비밀번호</label>
-              <SignupInput img={adminPasswordBox} placeholder="비밀번호 입력" />
-              <p>*10자 이상이면서 영문, 숫자, 특수문자를 모두 포함하세요</p>
-
-              <label>비밀번호 확인</label>
-              <SignupInput img={adminPasswordBox} placeholder="비밀번호 입력" />
-              <p>* 비밀번호를 다시 입력해주세요</p>
-
-              <label>이름</label>
-              <SignupInput img={adminEmailBox} placeholder="이름 입력" />
-
-              <label>전화 번호</label>
-              <SignupInput
-                img={adminEmailBox}
-                placeholder="휴대폰 번호 입력('-' 제외 11자리 입력)"
-              />
-
-              <label>생년월일</label>
-              <div className="birth-row">
-                <div className="birth-box">
-                  <img src={adminYearBox} alt="" />
-                  <input placeholder="년도" />
-                </div>
-
-                <div
-                  className="birth-box month-box"
-                  onClick={() => {
-                    setMonthOpen(!monthOpen);
-                    setDayOpen(false);
-                  }}
-                >
-                  <img src={adminYearBox} alt="" />
-                  <input value={selectedMonth} placeholder="월" readOnly />
-                  <img
-                    src={adminDropdownArrow}
-                    className="dropdown-arrow"
-                    alt=""
-                  />
-
-                  {monthOpen && (
-                    <div className="month-dropdown">
-                      <img
-                        src={adminDropdownBox}
-                        className="dropdown-bg"
-                        alt=""
-                      />
-
-                      <div className="dropdown-content">
-                        <span className="dropdown-title">월</span>
-                        <img
-                          src={adminDropdownLine}
-                          className="dropdown-line"
-                          alt=""
-                        />
-
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                          (month) => (
-                            <div
-                              key={month}
-                              className="dropdown-option"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMonth(`${month}월`);
-                                setMonthOpen(false);
-                              }}
-                            >
-                              {month}월
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className="birth-box day-box"
-                  onClick={() => {
-                    setDayOpen(!dayOpen);
-                    setMonthOpen(false);
-                  }}
-                >
-                  <img src={adminYearBox} alt="" />
-                  <input value={selectedDay} placeholder="일" readOnly />
-                  <img
-                    src={adminDropdownArrow}
-                    className="dropdown-arrow"
-                    alt=""
-                  />
-
-                  {dayOpen && (
-                    <div className="day-dropdown">
-                      <img
-                        src={adminDropdownBox}
-                        className="dropdown-bg"
-                        alt=""
-                      />
-
-                      <div className="dropdown-content day-dropdown-content">
-                        <span className="dropdown-title">일</span>
-                        <img
-                          src={adminDropdownLine}
-                          className="dropdown-line"
-                          alt=""
-                        />
-
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map(
-                          (day) => (
-                            <div
-                              key={day}
-                              className="dropdown-option"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedDay(`${day}일`);
-                                setDayOpen(false);
-                              }}
-                            >
-                              {day}일
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <label>부서</label>
-              <SignupInput img={adminEmailBox} placeholder="소속 부서 작성" />
-
-              <div className="signup-button-row">
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const dateText = `${today.getFullYear()}년 ${
-                      today.getMonth() + 1
-                    }월 ${today.getDate()}일`;
-
-                    setJoinDate(dateText);
-                    localStorage.setItem("joinDate", dateText);
-                    setPage("login");
-                  }}
-                >
-                  <img src={adminSignupButton} alt="" />
-                  <span>가입하기</span>
-                </button>
-
-                <button onClick={() => setPage("login")}>
-                  <img src={adminSignupCancelButton} alt="" />
-                  <span>가입취소</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {page === "findPassword" && (
-        <main className="login-wrap">
-          <div className="login-box">
-            <img src={adminLoginPanel} className="login-panel" alt="" />
-
-            <div className="login-content">
-              <h1>비밀번호 찾기</h1>
-
-              <label>이메일</label>
-              <div className="input-box">
-                <img src={adminEmailBox} alt="" />
-                <input type="email" placeholder="이메일 입력" />
-              </div>
-
-              <label>이름</label>
-              <div className="input-box">
-                <img src={adminEmailBox} alt="" />
-                <input placeholder="이름 입력" />
-              </div>
-
-              <button
-                className="login-button"
-                onClick={() => setPage("findPasswordVerify")}
-              >
-                <img src={adminLoginButton} alt="" />
-                <span>확인</span>
-              </button>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {page === "findPasswordVerify" && (
-        <main className="login-wrap">
-          <div className="login-box">
-            <img src={adminLoginPanel} className="login-panel" alt="" />
-
-            <div className="login-content">
-              <h1>비밀번호 찾기</h1>
-
-              <button className="resend-button">
-                <img src={adminResendBox} alt="" />
-                <span>재발송</span>
-              </button>
-
-              <div className="verify-area">
-                <label>이메일 인증</label>
-
-                <div className="verify-row">
-                  <div className="verify-input-box">
-                    <input
-                      placeholder="인증코드 입력"
-                      value={verifyCode}
-                      onChange={(e) => setVerifyCode(e.target.value)}
-                    />
-                    <img src={adminVerifyLine} alt="" />
-                  </div>
-
-                  <span className="verify-time">
-                    {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
-                    {String(timeLeft % 60).padStart(2, "0")}
-                  </span>
-
-                  <div className="verify-small-button" onClick={handleVerifyCode}>
-                    {isVerified ? (
-                      <img
-                        src={adminVerifySuccess}
-                        className="verify-success-icon"
-                        alt=""
-                      />
-                    ) : (
-                      <>
-                        <img src={adminVerifyButton} alt="" />
-                        <span>확인</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                className="login-button"
-                onClick={() => {
-                  if (!isVerified) {
-                    alert("이메일 인증을 먼저 완료해주세요.");
-                    return;
-                  }
-
-                  setPage("changePassword");
-                }}
-              >
-                <img
-                  src={
-                    isVerified
-                      ? adminVerifyCompleteButton
-                      : adminVerifyConfirmBox
-                  }
-                  alt=""
-                />
-                <span>확인</span>
-              </button>
-
-              <p className="verify-help">인증번호를 받지 못하셨나요?</p>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {page === "changePassword" && (
-        <main className="login-wrap">
-          <div className="login-box">
-            <img src={adminLoginPanel} className="login-panel" alt="" />
-
-            <div className="login-content">
-              <h1>비밀번호 변경</h1>
-
-              <label>새 비밀번호 입력</label>
-              <div className="input-box">
-                <img src={adminNewPasswordBox} alt="" />
-                <input
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-
-              <label>비밀번호 확인</label>
-              <div className="input-box">
-                <img src={adminNewPasswordBox} alt="" />
-                <input
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={newPasswordCheck}
-                  onChange={(e) => setNewPasswordCheck(e.target.value)}
-                />
-              </div>
-
-              <button className="login-button" onClick={handleChangePassword}>
-                <img src={adminChangePasswordButton} alt="" />
-                <span>변경하기</span>
-              </button>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {showWithdrawModal && (
-        <div className="withdraw-modal-bg">
-          <div className="withdraw-modal">
-            <img src={withdrawBox} className="withdraw-box-img" alt="" />
-
-            <img src={withdrawTrash} className="withdraw-trash-img" alt="" />
-
-            <div className="withdraw-title">정말 회원 탈퇴 하시겠습니까?</div>
-
-            <div className="withdraw-text">
-              탈퇴시, 계정은 삭제되며
-              <br />
-              복구되지 않습니다.
-            </div>
-
-            <div
-              className="withdraw-confirm"
-              onClick={() => {
-                setShowWithdrawModal(false);
-                setPage("login");
-              }}
-            >
-              <img src={withdrawConfirm} alt="" />
-              <span className="withdraw-button-text">확인</span>
-            </div>
-
-            <div
-              className="withdraw-cancel"
-              onClick={() => setShowWithdrawModal(false)}
-            >
-              <img src={withdrawCancel} alt="" />
-              <span className="withdraw-button-text">취소</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
+// "17:00" 형태 표시
+const fmtTime = (iso) => {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
 function PrintLogRow({ log }) {
+  const done = !!log.ended_at;
   return (
     <>
-      <div>{log.printerName}</div>
-      <div>{log.userName}</div>
-      <div>{log.startTime}</div>
-      <div>{log.endTime}</div>
-      <div
-        className={
-          log.status === "정상"
-            ? "history-status-normal"
-            : "history-status-error"
-        }
-      >
-        {log.status}
+      <div>{log.printer_name}</div>
+      <div>{log.user ? log.user.display_name : "-"}</div>
+      <div>{fmtTime(log.started_at)}</div>
+      <div>{done ? fmtTime(log.ended_at) : "-"}</div>
+      <div className={done ? "history-status-normal" : "history-status-error"}>
+        {done ? "정상" : "사용중"}
       </div>
     </>
   );
@@ -1183,6 +478,7 @@ function PrinterCard({
   label,
   status,
   name,
+  infoLines,
   buttonImg,
   buttonText,
   onButtonClick,
@@ -1191,6 +487,14 @@ function PrinterCard({
     <div className="home-printer-card">
       <div className="home-printer-box">
         <img src={img} alt="" />
+        {/* 상태 글씨 아래 사용자/예약자 학번·이름 */}
+        {infoLines && infoLines.length > 0 && (
+          <div className="printer-box-info">
+            {infoLines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="home-printer-name">
