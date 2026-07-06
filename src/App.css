@@ -1802,8 +1802,9 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
+  padding-left: 2.7vw;   
   color: white;
   font-size: 0.9vw;
   font-weight: 700;

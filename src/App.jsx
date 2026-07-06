@@ -211,12 +211,8 @@ function App() {
     return "비어있음";
   };
 
-  const getPrinterButtonText = (status) => {
-    if (status === "available") return "사용 가능";
-    if (status === "using") return "사용 중";
-    if (status === "reserved") return "예약됨";
-    if (status === "unavailable") return "사용 불가능";
-    return "사용 가능";
+  const getPrinterButtonText = () => {
+  return "상태설정";
   };
 
   const handleDisablePrinter = async (printerId) => {
@@ -263,44 +259,18 @@ function App() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (email.trim() === "" || password.trim() === "") {
       alert("이메일과 비밀번호를 입력해주세요.");
       return;
     }
 
-    try {
-      const res = await fetch("http://localhost:8000/api/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        }),
-      });
+    // 임시 로그인
+    setLoginEmail(email.trim());
+    localStorage.setItem("loginEmail", email.trim());
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || "이메일 또는 비밀번호가 올바르지 않습니다.");
-        return;
-      }
-
-      if (!data.user || data.user.role !== "admin") {
-        alert("관리자만 로그인할 수 있습니다.");
-        return;
-      }
-
-      setLoginEmail(data.user.email);
-      localStorage.setItem("loginEmail", data.user.email);
-      setIsLogin(true);
-      setPage("home");
-    } catch (error) {
-      console.error("로그인 실패:", error);
-      alert("서버 연결에 실패했습니다.");
-    }
+    setIsLogin(true);
+    setPage("home");
   };
 
   const goProtectedPage = (targetPage) => {
