@@ -1,5 +1,5 @@
 // 관리자용 백엔드 API 레이어 (무인증)
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 async function request(path, { method = 'GET' } = {}) {
   const res = await fetch(`${API_BASE}${path}`, {

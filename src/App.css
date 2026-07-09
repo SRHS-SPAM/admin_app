@@ -1295,11 +1295,12 @@ body {
   width: 82%;
   margin: 3vh auto 0;
 }
-
+/*상태확인*/
 .home-title {
   margin: 0 0 2.2vh;
   font-size: 1.9vw;
   font-weight: 800;
+  color: black;
 }
 
 .home-printer-panel {
@@ -1331,7 +1332,7 @@ body {
   height: auto;
   display: block;
 }
-
+/*2층 소프트웨어*/
 .home-panel-title {
   position: absolute;
   top: 8%;        
@@ -1342,7 +1343,8 @@ body {
   text-align: center;
   font-size: 1.9vw;
   font-family: "SCoreDream", sans-serif;
-  font-weight: 300;   
+  font-weight: 300;
+  color: black;   
 }
 
 
